@@ -1,0 +1,81 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="format-detection" content="telephone=no"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black"><link rel="icon" href="/images/icons/favicon-16x16.png?v=2.1.1" type="image/png" sizes="16x16"><link rel="icon" href="/images/icons/favicon-32x32.png?v=2.1.1" type="image/png" sizes="32x32"><meta name="description" content="1 为什么MySQL数据库要用B+树存储索引？                           1.1 B树和B+树       下图 一个B树然后是B+树  B+树和B树相比的主要区别  就是B+树的所有关键码都在叶子节点 B+树的叶子节点是带有指针的，且叶子节点本身按照关键码从大到连接 在搜索过程中，如果查询个内部节点的关键字一致，那么搜索过程不停止">
+<meta property="og:type" content="article">
+<meta property="og:title" content="MySQL数据库的B+树存储索引">
+<meta property="og:url" content="https://halloljl.github.io/2022/12/18/MySQL%E6%95%B0%E6%8D%AE%E5%BA%93%E7%9A%84B-%E6%A0%91%E5%AD%98%E5%82%A8%E7%B4%A2%E5%BC%95/index.html">
+<meta property="og:site_name" content="Hallo Blog">
+<meta property="og:description" content="1 为什么MySQL数据库要用B+树存储索引？                           1.1 B树和B+树       下图 一个B树然后是B+树  B+树和B树相比的主要区别  就是B+树的所有关键码都在叶子节点 B+树的叶子节点是带有指针的，且叶子节点本身按照关键码从大到连接 在搜索过程中，如果查询个内部节点的关键字一致，那么搜索过程不停止">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://cdn.nlark.com/yuque/0/2022/png/27517116/1671287372640-060d560b-403a-4528-a584-d1123250fc59.png#averageHue=%23fefefe&clientId=ub06745af-0e55-4&crop=0&crop=0&crop=1&crop=1&from=paste&height=275&id=ue5148af4&margin=%5Bobject%20Object%5D&name=image.png&originHeight=366&originWidth=660&originalType=binary&ratio=1&rotation=0&showTitle=true&size=28489&status=done&style=none&taskId=uf159a945-7cc0-421a-81c6-0ec4bf19d90&title=B%E6%A0%91&width=495">
+<meta property="og:image" content="https://halloljl.github.io/images/1671287384870-06e51c88-c62f-4538-aabc-cf4e5c557034.png">
+<meta property="article:published_time" content="2022-12-17T16:24:08.000Z">
+<meta property="article:modified_time" content="2022-12-17T16:27:42.487Z">
+<meta property="article:author" content="hallo">
+<meta property="article:tag" content="MySQL">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://cdn.nlark.com/yuque/0/2022/png/27517116/1671287372640-060d560b-403a-4528-a584-d1123250fc59.png#averageHue=%23fefefe&clientId=ub06745af-0e55-4&crop=0&crop=0&crop=1&crop=1&from=paste&height=275&id=ue5148af4&margin=%5Bobject%20Object%5D&name=image.png&originHeight=366&originWidth=660&originalType=binary&ratio=1&rotation=0&showTitle=true&size=28489&status=done&style=none&taskId=uf159a945-7cc0-421a-81c6-0ec4bf19d90&title=B%E6%A0%91&width=495"><title>MySQL数据库的B+树存储索引 | Hallo Blog</title><link ref="canonical" href="https://halloljl.github.io/2022/12/18/MySQL%E6%95%B0%E6%8D%AE%E5%BA%93%E7%9A%84B-%E6%A0%91%E5%AD%98%E5%82%A8%E7%B4%A2%E5%BC%95/"><link rel="dns-prefetch" href="https://cdn.jsdelivr.net"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.12.1/css/all.min.css" type="text/css"><link rel="stylesheet" href="/css/index.css?v=2.1.1"><script src="/live2d-widget-master/autoload.js"></script><script>var Stun = window.Stun || {};
+var CONFIG = {
+  root: '/',
+  algolia: undefined,
+  fontIcon: {"prompt":{"success":"fas fa-check-circle","info":"fas fa-arrow-circle-right","warning":"fas fa-exclamation-circle","error":"fas fa-times-circle"},"copyBtn":"fas fa-copy"},
+  sidebar: {"offsetTop":"20px","tocMaxDepth":6},
+  header: {"enable":true,"showOnPost":true,"scrollDownIcon":false},
+  postWidget: {"endText":true},
+  nightMode: {"enable":true},
+  back2top: {"enable":true},
+  codeblock: {"style":"default","highlight":"light","wordWrap":false},
+  reward: false,
+  fancybox: false,
+  zoomImage: {"gapAside":"20px"},
+  galleryWaterfall: undefined,
+  lazyload: false,
+  pjax: undefined,
+  externalLink: {"icon":{"enable":true,"name":"fas fa-external-link-alt"}},
+  shortcuts: undefined,
+  prompt: {"copyButton":"复制","copySuccess":"复制成功","copyError":"复制失败"},
+  sourcePath: {"js":"js","css":"css","images":"images"},
+};
+
+window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 6.3.0"></head><body><div class="container" id="container"><header class="header" id="header"><div class="header-inner"><nav class="header-nav header-nav--fixed"><div class="header-nav-inner"><div class="header-nav-menubtn"><i class="fas fa-bars"></i></div><div class="header-nav-menu"><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/"><span class="header-nav-menu-item__icon"><i class="fas fa-home"></i></span><span class="header-nav-menu-item__text">首页</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/archives/"><span class="header-nav-menu-item__icon"><i class="fas fa-folder-open"></i></span><span class="header-nav-menu-item__text">归档</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/categories/"><span class="header-nav-menu-item__icon"><i class="fas fa-layer-group"></i></span><span class="header-nav-menu-item__text">分类</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/tags/"><span class="header-nav-menu-item__icon"><i class="fas fa-tags"></i></span><span class="header-nav-menu-item__text">标签</span></a></div></div><div class="header-nav-mode"><div class="mode"><div class="mode-track"><span class="mode-track-moon"></span><span class="mode-track-sun"></span></div><div class="mode-thumb"></div></div></div></div></nav><div class="header-banner"><div class="header-banner-info"><div class="header-banner-info__title">Hallo Blog</div><div class="header-banner-info__subtitle">hallo 明天进大厂</div></div></div></div></header><main class="main" id="main"><div class="main-inner"><div class="content-wrap" id="content-wrap"><div class="content" id="content"><!-- Just used to judge whether it is an article page--><div id="is-post"></div><div class="post"><header class="post-header"><h1 class="post-title">MySQL数据库的B+树存储索引</h1><div class="post-meta"><span class="post-meta-item post-meta-item--createtime"><span class="post-meta-item__icon"><i class="far fa-calendar-plus"></i></span><span class="post-meta-item__info">发表于</span><span class="post-meta-item__value">2022-12-18</span></span><span class="post-meta-item post-meta-item--updatetime"><span class="post-meta-item__icon"><i class="far fa-calendar-check"></i></span><span class="post-meta-item__info">更新于</span><span class="post-meta-item__value">2022-12-18</span></span></div></header><div class="post-body">
+        <h1 id="1-为什么MySQL数据库要用B-树存储索引？"   >
+          <a href="#1-为什么MySQL数据库要用B-树存储索引？" class="heading-link"><i class="fas fa-link"></i></a>1 为什么MySQL数据库要用B+树存储索引？</h1>
+      
+        <h2 id="1-1-B树和B-树"   >
+          <a href="#1-1-B树和B-树" class="heading-link"><i class="fas fa-link"></i></a>1.1 B树和B+树</h2>
+      <p>下图 一个B树然后是B+树</p>
+<blockquote>
+<p><strong>B+树和B树相比的主要区别</strong></p>
+<ol>
+<li>就是B+树的所有关键码都在叶子节点</li>
+<li>B+树的叶子节点是带有指针的，且叶子节点本身按照关键码从大到连接</li>
+<li>在搜索过程中，如果查询个内部节点的关键字一致，那么搜索过程不停止，而是继续向下索索这个分支。</li>
+</ol>
+</blockquote>
+<p><img src="https://cdn.nlark.com/yuque/0/2022/png/27517116/1671287372640-060d560b-403a-4528-a584-d1123250fc59.png#averageHue=%23fefefe&clientId=ub06745af-0e55-4&crop=0&crop=0&crop=1&crop=1&from=paste&height=275&id=ue5148af4&margin=%5Bobject%20Object%5D&name=image.png&originHeight=366&originWidth=660&originalType=binary&ratio=1&rotation=0&showTitle=true&size=28489&status=done&style=none&taskId=uf159a945-7cc0-421a-81c6-0ec4bf19d90&title=B%E6%A0%91&width=495" alt="image.png" title="B树"><br><img src="/images/1671287384870-06e51c88-c62f-4538-aabc-cf4e5c557034.png" alt="image.png" title="B+树"></p>
+<p>B+树的查询 和树高有关<br>时间复杂度为Log(n)</p>
+
+        <h2 id="1-2-问：-hash更快-，时间复杂度为O-1"   >
+          <a href="#1-2-问：-hash更快-，时间复杂度为O-1" class="heading-link"><i class="fas fa-link"></i></a>1.2 问： hash更快 ，时间复杂度为O(1)</h2>
+      <p>首先就是这和业务场景有关，如果只选择一个值，确实是hash更快，不过数据库的查询一般回选择多条，这样就能体现出B+树的优势，因为他的存储数据的叶子节点，都有链式结构相连<br>而且数据库的索引一般是在磁盘上，数据量大的情况可能无法一次装入内存，B+树的设计可以允许数据分批。</p>
+<p>B树的设计可以允许数据的分批加载，同时树的高度较低，提高查询效率。</p>
+
+        <h2 id="1-3-红黑树"   >
+          <a href="#1-3-红黑树" class="heading-link"><i class="fas fa-link"></i></a>1.3 红黑树</h2>
+      <p> 红黑树的英文是“Red-Black Tree”，简称 R-B Tree，它是一种不严格的平衡二叉查找树  </p>
+
+        <h3 id="设计初衷"   >
+          <a href="#设计初衷" class="heading-link"><i class="fas fa-link"></i></a>设计初衷</h3>
+      <p>首先就是二叉排序树，二叉排序树他缺点就是插入有序数据的时候，会退化成链表，然后就有了平衡树，使得插入数据的时候就做出调整，让他的节点尽可能的均匀分布，<strong>红黑树</strong>就是平衡树的一种，最后都是为了保证树的平衡性 保证平衡性就是为了降低树高，提高这个树的查找效率。<br>AVL树，也是一种平衡树，有个平衡因子，（-1，0，1）这种树还是如果插入数据奇特的话，会使得他频繁左旋右旋，然后性能就降低了，就是归根结底是这种树太严格了 。 所以<strong>红黑树</strong>！！！</p>
+<p>红黑书规则</p>
+<blockquote>
+<p><strong>二叉排序树定义</strong><br>二叉排序树（Binary Sort Tree， BST），也称二叉查找树。<br>二叉排序树或者是一棵空树，或者是一棵具有下列特性的非空二叉树：<br>1） 若左子树非空，则左子树上所有结点关键字均小于根结点的关键字值；<br>2） 若右子树非空，则右子树上所有结点关键字均大于根结点的关键字值；<br>3） 左、右子树本身也分别是一棵二叉排序树。</p>
+</blockquote>
+
+        <h2 id="B树"   >
+          <a href="#B树" class="heading-link"><i class="fas fa-link"></i></a>B树</h2>
+      </div><footer class="post-footer"><div class="post-ending ending"><div class="ending__text">------ 本文结束，感谢您的阅读 ------</div></div><div class="post-copyright copyright"><div class="copyright-author"><span class="copyright-author__name">本文作者: </span><span class="copyright-author__value"><a href="https://Halloljl.github.io">hallo</a></span></div><div class="copyright-link"><span class="copyright-link__name">本文链接: </span><span class="copyright-link__value"><a href="https://halloljl.github.io/2022/12/18/MySQL%E6%95%B0%E6%8D%AE%E5%BA%93%E7%9A%84B-%E6%A0%91%E5%AD%98%E5%82%A8%E7%B4%A2%E5%BC%95/">https://halloljl.github.io/2022/12/18/MySQL%E6%95%B0%E6%8D%AE%E5%BA%93%E7%9A%84B-%E6%A0%91%E5%AD%98%E5%82%A8%E7%B4%A2%E5%BC%95/</a></span></div><div class="copyright-notice"><span class="copyright-notice__name">版权声明: </span><span class="copyright-notice__value">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" rel="external nofollow" target="_blank">BY-NC-SA</a> 许可协议。转载请注明出处！</span></div></div><div class="post-tags"><span class="post-tags-item"><span class="post-tags-item__icon"><i class="fas fa-tag"></i></span><a class="post-tags-item__link" href="https://halloljl.github.io/tags/MySQL/">MySQL</a></span></div><nav class="post-paginator paginator"><div class="paginator-next"><a class="paginator-next__link" href="/2022/12/17/MergeTwoSortedLists/"><span class="paginator-prev__text">MergeTwoSortedLists</span><span class="paginator-next__icon"><i class="fas fa-angle-right"></i></span></a></div></nav></footer></div></div></div><div class="sidebar-wrap" id="sidebar-wrap"><aside class="sidebar" id="sidebar"><div class="sidebar-nav"><span class="sidebar-nav-toc current">文章目录</span><span class="sidebar-nav-ov">站点概览</span></div><section class="sidebar-toc"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#1-%E4%B8%BA%E4%BB%80%E4%B9%88MySQL%E6%95%B0%E6%8D%AE%E5%BA%93%E8%A6%81%E7%94%A8B-%E6%A0%91%E5%AD%98%E5%82%A8%E7%B4%A2%E5%BC%95%EF%BC%9F"><span class="toc-number">1.</span> <span class="toc-text">
+          1 为什么MySQL数据库要用B+树存储索引？</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#1-1-B%E6%A0%91%E5%92%8CB-%E6%A0%91"><span class="toc-number">1.1.</span> <span class="toc-text">
+          1.1 B树和B+树</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#1-2-%E9%97%AE%EF%BC%9A-hash%E6%9B%B4%E5%BF%AB-%EF%BC%8C%E6%97%B6%E9%97%B4%E5%A4%8D%E6%9D%82%E5%BA%A6%E4%B8%BAO-1"><span class="toc-number">1.2.</span> <span class="toc-text">
+          1.2 问： hash更快 ，时间复杂度为O(1)</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#1-3-%E7%BA%A2%E9%BB%91%E6%A0%91"><span class="toc-number">1.3.</span> <span class="toc-text">
+          1.3 红黑树</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E8%AE%BE%E8%AE%A1%E5%88%9D%E8%A1%B7"><span class="toc-number">1.3.1.</span> <span class="toc-text">
+          设计初衷</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#B%E6%A0%91"><span class="toc-number">1.4.</span> <span class="toc-text">
+          B树</span></a></li></ol></li></ol></section><!-- ov = overview--><section class="sidebar-ov hide"><div class="sidebar-ov-author"><div class="sidebar-ov-author__avatar"><img class="sidebar-ov-author__avatar_img" src="/assets/avatar.jpg" alt="avatar"></div><p class="sidebar-ov-author__text">New youth will surely defeat capital</p></div><div class="sidebar-ov-state"><a class="sidebar-ov-state-item sidebar-ov-state-item--posts" href="/archives/"><div class="sidebar-ov-state-item__count">4</div><div class="sidebar-ov-state-item__name">归档</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--categories" href="/categories/"><div class="sidebar-ov-state-item__count">5</div><div class="sidebar-ov-state-item__name">分类</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--tags" href="/tags/"><div class="sidebar-ov-state-item__count">5</div><div class="sidebar-ov-state-item__name">标签</div></a></div><div class="sidebar-ov-cc"><a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" target="_blank" rel="noopener" data-popover="知识共享许可协议" data-popover-pos="up"><img src="/images/cc-by-nc-sa.svg"></a></div></section><div class="sidebar-reading"><div class="sidebar-reading-info"><span class="sidebar-reading-info__text">你已阅读了 </span><span class="sidebar-reading-info__num">0</span></div><div class="sidebar-reading-line"></div></div></aside></div><div class="clearfix"></div></div></main><footer class="footer" id="footer"><div class="footer-inner"><div><span>Copyright © 2022</span><span class="footer__icon"><i class="fas fa-heart"></i></span><span>hallo</span></div></div></footer><div class="loading-bar" id="loading-bar"><div class="loading-bar__progress"></div></div><div class="back2top" id="back2top"><span class="back2top__icon"><i class="fas fa-rocket"></i></span></div></div><script src="https://cdn.jsdelivr.net/npm/jquery@v3.4.1/dist/jquery.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.ui.min.js"></script><script src="/js/utils.js?v=2.1.1"></script><script src="/js/stun-boot.js?v=2.1.1"></script><script src="/js/scroll.js?v=2.1.1"></script><script src="/js/header.js?v=2.1.1"></script><script src="/js/sidebar.js?v=2.1.1"></script></body></html>
